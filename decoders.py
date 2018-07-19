@@ -1,5 +1,6 @@
-from keras.layers import Input, LSTM, RepeatVector, Concatenate, TimeDistributed, Dense, BatchNormalization, Conv1D, Dropout
 import keras
+from keras.layers import Input, LSTM, RepeatVector, Concatenate, TimeDistributed, Dense, BatchNormalization, Conv1D, Dropout
+
 
 
 def decoder_LSTM(self, lstm_size):

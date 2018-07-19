@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from VAE_base_keras_imports import *
 
+import hashlib
 import tensorflow as tf
 
 class VAE_base(ABC):
@@ -12,6 +13,12 @@ class VAE_base(ABC):
                  max_sequence_length=30,
                  max_num_words=200):
         
+        print('Model Name ', model_name)
+        print('KL_beta ', kl_beta)
+        print('embedding_dim ', embedding_dim)
+        print('max_sequence_length ', max_sequence_length)
+        print('max_num_words ', max_num_words)
+        
         path = Path(
             '{}/'.format(model_name))
         if not path.exists():
@@ -19,11 +26,18 @@ class VAE_base(ABC):
 
         self.MAX_SEQUENCE_LENGTH = max_sequence_length
         self.EMBEDDING_DIM = embedding_dim
-
         self.kl_beta = kl_beta
         self.KL_error = K.variable(0.0)
         self.model_name = model_name
-
+        self.max_num_words = max_num_words
+        
+        self.hash_list = []
+        self.hash_list.append(self.model_name)
+        self.hash_list.append(self.kl_beta)
+        self.hash_list.append(self.EMBEDDING_DIM)
+        self.hash_list.append(self.MAX_SEQUENCE_LENGTH)
+        self.hash_list.append(self.max_num_words)
+        
         self.train_data = train_data
 
         self.tokenizer = Tokenizer(num_words=max_num_words,
@@ -79,7 +93,6 @@ class VAE_base(ABC):
             [self.sequence_input, self.decoder_input], self.decoder_distribution_outputs)
         self.model_vae.compile(optimizer=keras.optimizers.adam(
             lr=1e-3, beta_1=0.5), loss=[vae_loss])
-
         
         self.model_vae_params = Model(
             self.sequence_input, self.z_h_mean)
@@ -113,8 +126,11 @@ class VAE_base(ABC):
 
             yield [batch_input_text_data, batch_decoder_inputs], batch_decoder_sequence_data
 
-    def load_weights(self, save_name):
-        save_path = Path('{}/{}'.format(self.model_name, save_name))
+    def load_weights(self, save_name, epoch):
+        save_path = Path('{}/{}_{}_{}'.format(self.model_name,
+                                              save_name,
+                                              str(epoch), 
+                                              self.get_hash()))
         self.model_vae.load_weights(str(save_path))
 
     def train(self,
@@ -129,14 +145,15 @@ class VAE_base(ABC):
                                                 self.encoder_name,
                                                 self.latent_name,
                                                 self.decoder_name))
-        
+        print('Saving To ', save_name)
+        print('Hash Value', self.get_hash())
 
         print([self.train_data[0], self.train_data[-1]])
 
         kl_value = 0.0
         for epoch in range(start_epoch, end_epoch):
             print('EPOCH : ', epoch)
-            kl_value = min(self.kl_beta, (4/3)*epoch/end_epoch)
+            kl_value = min(self.kl_beta, (4/3)*(epoch/end_epoch)*self.kl_beta)
             
             K.set_value(
                 self.KL_error, kl_value)
@@ -150,7 +167,10 @@ class VAE_base(ABC):
             
 
             if (epoch + 1) % save_every == 0:
-                save_path = Path('{}/{}'.format(self.model_name, save_name+str(epoch+1)))
+                save_path = Path('{}/{}_{}_{}'.format(self.model_name,
+                                                      save_name,
+                                                      str(epoch+1), 
+                                                      self.get_hash()))
                 self.model_vae.save_weights(str(save_path))
 
 
@@ -196,3 +216,9 @@ class VAE_base(ABC):
                     decoded_sequence += self.index_word[most_likely_word_index]
             print("Decoded Sentence :", decoded_sequence)
             print("================================")
+            
+    def get_hash(self):
+        self.hash_value = hashlib.md5()
+        for attribute in self.hash_list:
+            self.hash_value.update(str(attribute).encode())
+        return self.hash_value.hexdigest()

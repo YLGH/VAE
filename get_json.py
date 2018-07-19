@@ -2,8 +2,8 @@ import json
 
 def get_easy():
 
-    json_loader = open('easy.txt', 'rb')
-    json_loader_attack = open('easy.attack.txt', 'rb')
+    json_loader = open('data/easy.txt', 'rb')
+    json_loader_attack = open('data/easy.attack.txt', 'rb')
 
     attributes = ['method', 'url', 'name', 'age', 'origin']
 
